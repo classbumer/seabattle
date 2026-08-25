@@ -191,7 +191,7 @@
 </script>
 <script>
 // Online server configuration. Replace host after deploying the included server.
-const ONLINE_SERVER = { host: "0.peerjs.com", port: 443, path: "/", secure: true, key: "peerjs" };
+const ONLINE_SERVER = { host: "seabattle-k1q4.onrender.com", port: 443, path: "/peerjs", secure: true };
 const ONLINE_ICE = { iceServers: [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
@@ -206,7 +206,7 @@ const ONLINE_ICE = { iceServers: [
 ], sdpSemantics: "unified-plan", iceCandidatePoolSize: 10 };
 function makePeer(id){
   if(typeof Peer === 'undefined') throw new Error('PeerJS не загрузился');
-  const opts={host:ONLINE_SERVER.host,port:ONLINE_SERVER.port,path:ONLINE_SERVER.path,secure:ONLINE_SERVER.secure,key:ONLINE_SERVER.key,config:ONLINE_ICE,debug:2};
+  const opts={host:ONLINE_SERVER.host,port:ONLINE_SERVER.port,path:ONLINE_SERVER.path,secure:ONLINE_SERVER.secure,config:ONLINE_ICE,debug:2};
   if(ONLINE_SERVER.host==='YOUR-SERVER-DOMAIN') throw new Error('Не настроен адрес сервера');
   return new Peer(id,opts);
 }
