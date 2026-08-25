@@ -664,33 +664,3 @@ window.addEventListener('resize',()=>{if(!game.classList.contains('hidden'))draw
 })();
 </script>
 </body></html>
-
-
-// === BOT SPECIAL FORCES AI ===
-function botChooseSpecial(gameState) {
-  const list = gameState && (gameState.availableAbilities || gameState.specialAbilities || gameState.abilities);
-  if (!Array.isArray(list) || !list.length) return null;
-  const targets = gameState.enemyTargets || gameState.targets || [];
-  const wounded = targets.filter(t => t && (t.hit || t.damaged || t.hp < (t.maxHp || 1))).length;
-  const score = a => {
-    const n=String(a.type||a.id||a.name||'').toLowerCase();
-    let v=0;
-    if (/(air|airstrike|aviat|авиа|самол|авианос|carrier)/.test(n)) v+=150;
-    if (/(bomb|strike|удар|бомб)/.test(n)) v+=80;
-    if (/(scan|recon|radar|развед)/.test(n)) v+=70;
-    if (/(salvo|volley|залп)/.test(n)) v+=60;
-    v += Math.min(Number(a.area||a.radius||a.cells||1),9)*5;
-    v += wounded*4;
-    return v;
-  };
-  return list.slice().sort((a,b)=>score(b)-score(a))[0] || null;
-}
-
-function botUseSpecialForces(gameState) {
-  const a=botChooseSpecial(gameState);
-  if(!a) return false;
-  const fn = gameState && (gameState.useAbility || gameState.activateAbility || gameState.useSpecialAbility);
-  if(typeof fn !== 'function') return false;
-  try { fn(a); return true; } catch(e) { return false; }
-}
-
