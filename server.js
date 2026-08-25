@@ -1,153 +1,88 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const { WebSocketServer } = require("ws");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    service: "Sea Battle Online Server",
-    websocket: "/game"
-  });
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, service: "Sea Battle Online", websocket: "/game" });
 });
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/game" });
-
 const rooms = new Map();
 
 function send(ws, data) {
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify(data));
-  }
+  if (ws.readyState === 1) ws.send(JSON.stringify(data));
 }
-
-function broadcast(room, data, except = null) {
-  for (const player of room.players) {
-    if (player !== except) send(player.ws, data);
-  }
+function broadcast(room, data, except) {
+  for (const p of room.players) if (p.ws !== except) send(p.ws, data);
 }
-
-function removePlayer(ws) {
-  const roomCode = ws.roomCode;
-  if (!roomCode) return;
-
-  const room = rooms.get(roomCode);
+function remove(ws) {
+  const code = ws.roomCode;
+  if (!code) return;
+  const room = rooms.get(code);
   if (!room) return;
-
   room.players = room.players.filter(p => p.ws !== ws);
   ws.roomCode = null;
-
-  if (room.players.length === 0) {
-    rooms.delete(roomCode);
-    return;
-  }
-
-  broadcast(room, { t: "peer_left" });
+  if (!room.players.length) rooms.delete(code);
+  else broadcast(room, { t: "peer_left" });
 }
 
-wss.on("connection", (ws) => {
+wss.on("connection", ws => {
   ws.isAlive = true;
-
-  ws.on("pong", () => {
-    ws.isAlive = true;
-  });
+  ws.on("pong", () => ws.isAlive = true);
 
   ws.on("message", raw => {
-    let msg;
-    try {
-      msg = JSON.parse(raw.toString());
-    } catch {
-      return send(ws, { t: "error", message: "Invalid JSON" });
-    }
+    let m;
+    try { m = JSON.parse(raw.toString()); } catch { return; }
 
-    if (msg.t === "join") {
-      const code = String(msg.room || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-      if (!code) {
-        return send(ws, { t: "error", message: "Room code is empty" });
-      }
+    if (m.t === "join") {
+      const code = String(m.room || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!code) return send(ws, { t:"error", message:"Bad room" });
 
       let room = rooms.get(code);
-
       if (!room) {
-        room = {
-          mode: Number(msg.mode) === 2 ? 2 : 1,
-          players: []
-        };
+        room = { mode: Number(m.mode) === 2 ? 2 : 1, players: [] };
         rooms.set(code, room);
       }
 
-      const maxPlayers = room.mode === 2 ? 4 : 2;
+      const max = room.mode === 2 ? 4 : 2;
+      if (room.players.length >= max) return send(ws, { t:"room", status:"full" });
 
-      if (room.players.length >= maxPlayers) {
-        return send(ws, { t: "room", status: "full" });
-      }
-
-      const player = {
-        ws,
-        host: !!msg.host,
-        mode: room.mode
-      };
-
-      room.players.push(player);
+      room.players.push({ ws, host: !!m.host });
       ws.roomCode = code;
 
-      send(ws, {
-        t: "room",
-        status: room.players.length === 1 ? "waiting" : "joined",
-        count: room.players.length,
-        maxPlayers
-      });
+      send(ws, { t:"room", status:room.players.length === 1 ? "waiting" : "joined",
+        count:room.players.length, maxPlayers:max });
 
-      if (room.players.length === maxPlayers) {
-        room.players.forEach((p, index) => {
-          send(p.ws, {
-            t: "start",
-            host: index === 0
-          });
-        });
+      if (room.players.length === max) {
+        room.players.forEach((p,i) => send(p.ws,{t:"start",host:i===0}));
       }
-
       return;
     }
 
-    if (msg.t === "game") {
+    if (m.t === "game") {
       const room = rooms.get(ws.roomCode);
-      if (!room) return;
-
-      /*
-        Для 1×1 сообщение отправляется второму игроку.
-        Для 2×2 пока ретранслируем всем остальным игрокам комнаты.
-      */
-      broadcast(room, { t: "game", data: msg.data }, ws);
-      return;
+      if (room) broadcast(room, { t:"game", data:m.data }, ws);
     }
   });
 
-  ws.on("close", () => removePlayer(ws));
-  ws.on("error", () => removePlayer(ws));
+  ws.on("close", () => remove(ws));
+  ws.on("error", () => remove(ws));
 });
 
-const heartbeat = setInterval(() => {
+setInterval(() => {
   for (const ws of wss.clients) {
-    if (ws.isAlive === false) {
-      try { ws.terminate(); } catch {}
-      continue;
-    }
-
-    ws.isAlive = false;
-    try { ws.ping(); } catch {}
+    if (ws.isAlive === false) { try { ws.terminate(); } catch {} }
+    else { ws.isAlive = false; try { ws.ping(); } catch {} }
   }
 }, 25000);
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Sea Battle Online Server listening on ${PORT}`);
-});
-
-process.on("SIGTERM", () => {
-  clearInterval(heartbeat);
-  server.close(() => process.exit(0));
+  console.log(`Sea Battle Online listening on ${PORT}`);
 });
