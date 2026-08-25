@@ -494,19 +494,22 @@ function updateSkillUI(me){
 
 function selectSkill(skill){
   let me=viewMe||players.find(p=>p.id===myId); if(!me||!me.fleet)return;
-  if(skill && (!(me.fleet.skills||{})[skill]||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState?.turnTeam===me.team)))return;
+  if(skill && (!(me.fleet.skills||{})[skill]||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState?.turnTeam===me.team))){
+    status.textContent='⏳ Сейчас не ваш ход — подождите';
+    return;
+  }
   selectedSkill=skill; drawForMe();
   if(skill) status.textContent=skill==='fighter'?'✈️ ИСТРЕБИТЕЛЬ: выберите клетку цели':skill==='torpedo'?'🚀 ТОРПЕДА: выберите клетку цели':skill==='heli'?'🚁 ВЕРТОЛЁТ: выберите центр зоны 3×3 для разведки':'💣 АРТИЛЛЕРИЯ: выберите центр зоны 3×3 для залпа';
 }
 function fire(target,r,c){
-  let me=players.find(p=>p.id===myId);if(!me||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState.turnTeam===me.team))return;
+  let me=players.find(p=>p.id===myId);if(!me||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState.turnTeam===me.team)){status.textContent='⏳ Сейчас не ваш ход';return;}
   selectedSkill=null;
-  if(host)processShot(myId,target,r,c);else if(connections.host?.open)connections.host.send({type:'shot',from:myId,target,r,c});
+  if(host)processShot(myId,target,r,c);else if(connections.host?.open)connections.host.send({type:'shot',from:myId,target,r,c});else status.textContent='⚠️ Нет соединения с хостом — обновите страницу';
 }
 function useSkill(target,r,c){
-  let me=viewMe||players.find(p=>p.id===myId);if(!me||!me.fleet||!selectedSkill||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState.turnTeam===me.team))return;
+  let me=viewMe||players.find(p=>p.id===myId);if(!me||!me.fleet||!selectedSkill||gameState?.winner!=null||!(mode==='2v2'?gameState?.turnPlayer===myId:gameState.turnTeam===me.team)){status.textContent='⏳ Сейчас не ваш ход';return;}
   let skill=selectedSkill; selectedSkill=null;
-  if(host)processSkill(myId,target,r,c,skill);else if(connections.host?.open)connections.host.send({type:'skill',from:myId,target,r,c,skill});
+  if(host)processSkill(myId,target,r,c,skill);else if(connections.host?.open)connections.host.send({type:'skill',from:myId,target,r,c,skill});else status.textContent='⚠️ Нет соединения с хостом — обновите страницу';
 }
 function skillCells(r,c,skill,victim){
   let out=[];
