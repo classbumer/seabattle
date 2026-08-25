@@ -693,15 +693,46 @@ function botChooseShot(bot,victim){
 function advance2v2(){const order=gameState.turnOrder||['p1','p2','p3','p4'];let i=order.indexOf(gameState.turnPlayer);gameState.turnPlayer=order[(i+1)%order.length]}
 function processShot(from,target,r,c){if(!host)return;let shooter=players.find(p=>p.id===from),victim=players.find(p=>p.id===target);if(!shooter||!victim||shooter.team===victim.team||victim.fleet.shots[r][c])return;if(mode==='2v2'){if(gameState.turnPlayer!==shooter.id)return}else if(gameState.turnTeam!==shooter.team)return;let result=applyAttack(victim,[[r,c]]);if(mode==='2v2'){checkWinner();if(!gameState.winner){if(!result.hit)advance2v2();broadcastState();const next=players.find(p=>p.id===gameState.turnPlayer);if(next?.isBot)setTimeout(botTurn,650)}else broadcastState()}else{if(!result.hit)gameState.turnTeam=1-gameState.turnTeam;checkWinner();broadcastState();if(!gameState.winner&&gameState.turnTeam===1)setTimeout(botTurn,650)}}
 function processSkill(from,target,r,c,skill){
-  if(!host)return;let shooter=players.find(p=>p.id===from),victim=players.find(p=>p.id===target);if(!shooter||!victim||shooter.team===victim.team)return;
+  if(!host)return;
+  const shooter=players.find(p=>p.id===from),victim=players.find(p=>p.id===target);
+  if(!shooter||!victim||shooter.team===victim.team)return;
   if(mode==='2v2'){if(gameState.turnPlayer!==shooter.id)return}else if(gameState.turnTeam!==shooter.team)return;
-  let count=shooter.fleet.skills?.[skill]||0;if(count<=0)return;shooter.fleet.skills[skill]=count-1;
+  const count=shooter.fleet.skills?.[skill]||0;if(count<=0)return;
+  shooter.fleet.skills[skill]=count-1;
+
+  // Все способности второго игрока обрабатываются хостом, а после их
+  // применения ход ОБЯЗАТЕЛЬНО передается следующему игроку.
   if(skill==='radar'){
-    const cells=reconCells(r,c), ships=(victim.fleet.ships||[]).flatMap(s=>s.cells.filter(x=>cells.some(y=>y[0]===x[0]&&y[1]===x[1])));
+    const cells=reconCells(r,c);
+    const ships=(victim.fleet.ships||[]).flatMap(s=>s.cells.filter(x=>cells.some(y=>y[0]===x[0]&&y[1]===x[1])));
     const payload={type:'recon',target:victim.id,area:cells,ships};
-    if(shooter.id==='p1'){reconReveal={target:victim.id,cells:ships};addRadarSweep(victim.id,cells);drawForMe();clearTimeout(reconTimer);reconTimer=setTimeout(()=>{reconReveal=null;drawForMe()},4000)}else{const cc=connections[shooter.peerId];if(cc?.open)cc.send(payload)}
-    if(mode==='2v2'){advance2v2();broadcastState();if(players.find(p=>p.id===gameState.turnPlayer)?.isBot)setTimeout(botTurn,650)}else{gameState.turnTeam=1-gameState.turnTeam;broadcastState();if(gameState.turnTeam===1)setTimeout(botTurn,650)}
-    return;
+
+    // Результат показываем самому использовавшему способность игроку.
+    // Для p1 это локальный экран, для p2 — через его PeerJS connection.
+    if(shooter.id==='p1'){
+      reconReveal={target:victim.id,cells:ships};
+      addRadarSweep(victim.id,cells);
+      drawForMe();
+      clearTimeout(reconTimer);
+      reconTimer=setTimeout(()=>{reconReveal=null;drawForMe()},4000);
+    }else{
+      const cc=connections[shooter.peerId];
+      if(cc?.open){try{cc.send(payload)}catch(e){}}
+    }
+  }else{
+    // Неизвестная способность не должна намертво блокировать игру:
+    // расходуем ее и корректно передаем ход.
+    if(mode==='2v2')advance2v2();
+    else gameState.turnTeam=1-gameState.turnTeam;
+  }
+
+  checkWinner();
+  broadcastState();
+  if(!gameState.winner){
+    const next=mode==='2v2'
+      ? players.find(p=>p.id===gameState.turnPlayer)
+      : players.find(p=>p.team===gameState.turnTeam&&p.isBot);
+    if(next?.isBot)setTimeout(botTurn,650);
   }
 }
 function checkWinner(){for(const team of [0,1]){let alive=players.filter(p=>p.team===team).some(p=>p.fleet.ships.some(s=>!s.sunk));if(!alive){gameState.winner=1-team;if(typeof window.showGameResult==="function"){const me=players.find(p=>p.id===myId);window.showGameResult(!!me&&me.team===gameState.winner);}return}}}
