@@ -73,21 +73,69 @@ h2{margin:0 0 17px;font-size:22px}.modes{display:grid;grid-template-columns:repe
 
 <script>
 const PEER_URL="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js";
+
+/* ТВОЙ Render PeerServer */
 const PEER_SERVER_HOST="seabattle-k1q4.onrender.com";
-const PEER_SERVER_PATH="/peerjs";
 const PEER_SERVER_PORT=443;
+const PEER_SERVER_PATH="/peerjs";
+
 let mode=1,peer=null,conn=null,host=false,room="";
 let myShips=[],enemyView=[],myHits=0,enemyHits=0,myTurn=false,loaded=false;
+let connectionTimer=null;
 
 function qs(id){return document.getElementById(id)}
-function toast(t){const e=qs("toast");e.textContent=t;e.classList.remove("hidden");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>e.classList.add("hidden"),2200)}
+function toast(t){
+  const e=qs("toast"); if(!e)return;
+  e.textContent=t;e.classList.remove("hidden");
+  clearTimeout(window.toastTimer);
+  window.toastTimer=setTimeout(()=>e.classList.add("hidden"),3000);
+}
+function setPlayers(t){if(qs("players"))qs("players").innerHTML=t}
+
+function peerOptions(){
+  return {
+    host:PEER_SERVER_HOST,
+    port:PEER_SERVER_PORT,
+    path:PEER_SERVER_PATH,
+    secure:true,
+    debug:2,
+    config:{
+      iceServers:[
+        {urls:"stun:stun.l.google.com:19302"},
+        {urls:"stun:stun1.l.google.com:19302"}
+      ],
+      sdpSemantics:"unified-plan"
+    }
+  };
+}
+
+function peerError(e){
+  const type=e&&e.type?e.type:"unknown";
+  const map={
+    "peer-unavailable":"Игрок с таким кодом не найден",
+    "network":"Нет связи с Render",
+    "server-error":"Render не отвечает PeerJS",
+    "socket-error":"Ошибка WebSocket Render",
+    "socket-closed":"WebSocket Render закрыл соединение",
+    "webrtc":"WebRTC не смог соединить телефоны",
+    "unavailable-id":"Код комнаты уже занят",
+    "browser-incompatible":"Браузер не поддерживает WebRTC",
+    "ssl-unavailable":"Ошибка HTTPS/WSS"
+  };
+  setPlayers('<span class="online">● СИГНАЛИНГ: ОШИБКА</span><br>'+ (map[type]||("Ошибка: "+type)));
+  toast(map[type]||("Ошибка: "+type));
+  clearTimeout(connectionTimer);
+}
+
 function loadPeer(cb){
   if(loaded)return cb();
-  const s=document.createElement("script");s.src=PEER_URL;
+  const s=document.createElement("script");
+  s.src=PEER_URL;
   s.onload=()=>{loaded=true;cb()};
-  s.onerror=()=>toast("Не удалось загрузить онлайн-модуль. Проверь интернет.");
+  s.onerror=()=>toast("Не загрузился PeerJS. Проверь интернет.");
   document.head.appendChild(s);
 }
+
 function makeFleet(){
   const a=Array(100).fill(0),lens=[4,3,3,2,2,2,1,1,1,1];
   for(const len of lens){
@@ -96,176 +144,270 @@ function makeFleet(){
       const h=Math.random()<.5;
       const r=Math.floor(Math.random()*(h?10:11-len));
       const c=Math.floor(Math.random()*(h?11-len:10));
-      const cells=[]; let ok=true;
+      const cells=[];let ok=true;
       for(let i=0;i<len;i++){
         const rr=r+(h?0:i),cc=c+(h?i:0),id=rr*10+cc;
-        if(a[id]){ok=false;break} cells.push(id);
+        if(a[id]){ok=false;break}
+        cells.push(id);
       }
       if(ok){cells.forEach(id=>a[id]=1);placed=true}
     }
   }
   return a;
 }
+
 function openOnline(m){
-  mode=m;qs("menu").classList.add("hidden");qs("lobby").classList.remove("hidden");
+  mode=m;
+  qs("menu").classList.add("hidden");
+  qs("lobby").classList.remove("hidden");
   qs("modeText").textContent=m===1?"1 × 1: два человека онлайн":"2 × 2: командная онлайн-комната";
-  qs("netStatus").innerHTML='<span class="online">● ONLINE</span>  Сервер: seabattle-k1q4.onrender.com';
+  qs("netStatus").innerHTML='<span class="online">● ONLINE</span> Render PeerServer';
   loadPeer(()=>{});
 }
+
 function createRoom(){
   loadPeer(()=>{
-    host=true;room=Math.random().toString(36).slice(2,7).toUpperCase();
-    qs("roomJoin").classList.add("hidden");qs("roomReady").classList.remove("hidden");
-    qs("roomCode").textContent=room;qs("players").textContent="Создана комната. Ожидание игрока…";
-    peer=new Peer("ABYSS-"+room,{
-      host:PEER_SERVER_HOST,port:PEER_SERVER_PORT,path:PEER_SERVER_PATH,secure:true,
-      debug:1
+    host=true;
+    room=Math.random().toString(36).slice(2,7).toUpperCase();
+
+    qs("roomJoin").classList.add("hidden");
+    qs("roomReady").classList.remove("hidden");
+    qs("roomCode").textContent=room;
+    setPlayers("Создаём защищённое соединение с сервером…");
+
+    peer=new Peer("ABYSS-"+room,peerOptions());
+
+    peer.on("open",id=>{
+      setPlayers('<span class="online">● СЕРВЕР ПОДКЛЮЧЁН</span><br>Код комнаты: '+room+'<br>Ожидание игрока…');
+      toast("Комната создана");
     });
-    peer.on("open",()=>toast("Комната создана"));
-    peer.on("connection",c=>{if(conn){c.close();return}conn=c;setupConn()});
-    peer.on("error",e=>{
-      if(e.type==="unavailable-id") toast("Этот код комнаты уже занят. Создай новую комнату.");
-      else toast("Ошибка сервера: "+e.type);
+
+    peer.on("connection",c=>{
+      if(conn){try{c.close()}catch(e){}return}
+      conn=c;
+      setupConn();
     });
+
+    peer.on("error",peerError);
+    peer.on("disconnected",()=>setPlayers('<span class="online">● СЕРВЕР ОТКЛЮЧЁН</span><br>Пытаемся восстановить…'));
+    peer.on("close",()=>setPlayers("Соединение с сервером закрыто"));
   });
 }
+
 function joinRoom(){
   const code=qs("roomInput").value.trim().toUpperCase();
   if(!code)return toast("Введи код комнаты");
+
   loadPeer(()=>{
-    host=false;room=code;qs("roomJoin").classList.add("hidden");qs("roomReady").classList.remove("hidden");
-    qs("roomCode").textContent=room;qs("players").textContent="Подключаемся…";
-    peer=new Peer({
-      host:PEER_SERVER_HOST,port:PEER_SERVER_PORT,path:PEER_SERVER_PATH,secure:true,
-      debug:1
+    host=false;room=code;
+    qs("roomJoin").classList.add("hidden");
+    qs("roomReady").classList.remove("hidden");
+    qs("roomCode").textContent=room;
+    setPlayers("Подключаемся к Render PeerServer…");
+
+    peer=new Peer(peerOptions());
+
+    peer.on("open",id=>{
+      setPlayers('<span class="online">● СЕРВЕР ПОДКЛЮЧЁН</span><br>Ищем комнату '+room+'…');
+      conn=peer.connect("ABYSS-"+room,{reliable:true,serialization:"json"});
+      setupConn();
     });
-    peer.on("open",()=>{conn=peer.connect("ABYSS-"+room,{reliable:true});setupConn()});
-    peer.on("error",e=>toast("Ошибка подключения: "+e.type));
+
+    peer.on("error",peerError);
+    peer.on("disconnected",()=>setPlayers("Сервер временно недоступен…"));
   });
 }
+
 function setupConn(){
-  conn.on("open",()=>{qs("players").innerHTML='<span class="online">● Игрок подключён</span>';initOnlineGame()});
+  if(!conn)return;
+
+  clearTimeout(connectionTimer);
+  setPlayers("Игрок найден. Устанавливаем WebRTC-соединение…");
+
+  connectionTimer=setTimeout(()=>{
+    if(!conn.open){
+      setPlayers('<span class="online">● СОЕДИНЕНИЕ НЕ УСТАНОВЛЕНО</span><br>WebRTC не смог соединить устройства. Попробуй ещё раз.');
+      toast("Не удалось установить WebRTC");
+    }
+  },18000);
+
+  conn.on("open",()=>{
+    clearTimeout(connectionTimer);
+    setPlayers('<span class="online">● ИГРОК ПОДКЛЮЧЁН</span><br>Соединение установлено!');
+    toast("⚓ Игрок подключён!");
+    initOnlineGame();
+  });
+
   conn.on("data",handleData);
-  conn.on("close",()=>toast("Соединение закрыто"));
+
+  conn.on("error",e=>{
+    clearTimeout(connectionTimer);
+    toast("Ошибка игрового соединения: "+(e.type||"unknown"));
+    setPlayers("Ошибка игрового соединения");
+  });
+
+  conn.on("close",()=>{
+    clearTimeout(connectionTimer);
+    toast("Соперник отключился");
+    setPlayers("Соперник отключился");
+  });
 }
-function send(o){if(conn&&conn.open)conn.send(o)}
+
+function send(o){
+  if(conn&&conn.open)conn.send(o);
+}
 
 function initOnlineGame(){
-  myShips=makeFleet();enemyView=Array(100).fill(0);myHits=enemyHits=0;myTurn=host;
-  showGame();send({t:"fleet",fleet:myShips});
-  if(host)toast("Ты начинаешь. Атакуй поле соперника!");
+  myShips=makeFleet();
+  enemyView=Array(100).fill(0);
+  myHits=enemyHits=0;
+  myTurn=host;
+  showGame();
+  send({t:"fleet",fleet:myShips});
+  if(host)toast("Твой ход — атакуй!");
 }
+
 function showGame(){
-  qs("lobby").classList.add("hidden");qs("game").classList.remove("hidden");
+  qs("lobby").classList.add("hidden");
+  qs("game").classList.remove("hidden");
   qs("gameTitle").textContent=mode===1?"ОНЛАЙН • 1 × 1":"ОНЛАЙН • 2 × 2";
   render();updateTurn();
 }
+
 function render(){
-  const mb=qs("myBoard"),eb=qs("enemyBoard");mb.innerHTML="";eb.innerHTML="";
+  const mb=qs("myBoard"),eb=qs("enemyBoard");
+  mb.innerHTML="";eb.innerHTML="";
   for(let i=0;i<100;i++){
     const a=document.createElement("div");
     a.className="cell"+(myShips[i]===1?" ship":"")+(myShips[i]===2?" hit":"");
-    if(myShips[i]===2)a.textContent="×";mb.appendChild(a);
+    if(myShips[i]===2)a.textContent="×";
+    mb.appendChild(a);
+
     const b=document.createElement("div");
     b.className="cell"+(enemyView[i]===2?" hit":"")+(enemyView[i]===3?" miss":"");
-    if(enemyView[i]===2)b.textContent="×";else if(enemyView[i]===3)b.textContent="•";
-    b.onclick=()=>shoot(i);eb.appendChild(b);
+    if(enemyView[i]===2)b.textContent="×";
+    else if(enemyView[i]===3)b.textContent="•";
+    b.onclick=()=>shoot(i);
+    eb.appendChild(b);
   }
   qs("score").textContent=`${myHits} : ${enemyHits}`;
-  qs("myScore").textContent=myHits;qs("enemyScore").textContent=enemyHits;
+  qs("myScore").textContent=myHits;
+  qs("enemyScore").textContent=enemyHits;
   qs("modeStat").textContent=mode===0?"БОТ":(mode===1?"1×1":"2×2");
 }
+
 function updateTurn(){
-  const box=qs("turnBox");box.classList.toggle("your",!!myTurn);box.classList.toggle("enemy",!myTurn);
+  const box=qs("turnBox");
+  box.classList.toggle("your",!!myTurn);
+  box.classList.toggle("enemy",!myTurn);
   qs("turnText").textContent=myTurn?"ТВОЙ ХОД — ВЫБЕРИ КЛЕТКУ":"ХОД СОПЕРНИКА — ВНИМАНИЕ";
 }
+
 function checkVictory(){
-  if(myHits>=20){toast("🏆 ПОБЕДА! Флот противника уничтожен.");myTurn=false;return true}
-  if(enemyHits>=20){toast("💀 ПОРАЖЕНИЕ! Твой флот уничтожен.");myTurn=false;return true}
+  if(myHits>=20){
+    toast("🏆 ПОБЕДА! Флот противника уничтожен.");
+    myTurn=false;return true;
+  }
+  if(enemyHits>=20){
+    toast("💀 ПОРАЖЕНИЕ! Твой флот уничтожен.");
+    myTurn=false;return true;
+  }
   return false;
 }
 
 function shoot(i){
   if(!myTurn)return toast("Сейчас ход соперника");
-  if(enemyView[i])return;
+  if(enemyView[i])return toast("Ты уже стрелял сюда");
+
   if(mode===0){
     const hit=window.bot[i]===1;
-    enemyView[i]=hit?2:3;if(hit)myHits++;
+    enemyView[i]=hit?2:3;
+    if(hit)myHits++;
     render();
     if(checkVictory())return;
     myTurn=false;updateTurn();
     setTimeout(botAttack,600);
   }else{
-    send({t:"shot",id:i});myTurn=false;updateTurn();
+    send({t:"shot",id:i});
+    myTurn=false;updateTurn();
   }
 }
 
-/* Умный бот: после попадания продолжает искать корабль рядом,
-   после промаха передаёт ход игроку. */
-function botCandidates(){
-  const c=[];
-  for(const id of window.botTargets){
-    const r=Math.floor(id/10),col=id%10;
-    [[r-1,col],[r+1,col],[r,col-1],[r,col+1]].forEach(([rr,cc])=>{
-      if(rr>=0&&rr<10&&cc>=0&&cc<10){
-        const n=rr*10+cc;if(!window.botShots.has(n))c.push(n);
-      }
-    });
-  }
-  if(!c.length){
-    for(let i=0;i<100;i++)if(!window.botShots.has(i))c.push(i);
-  }
-  return [...new Set(c)];
-}
 function botAttack(){
   if(mode!==0||checkVictory())return;
-  const candidates=botCandidates();
-  if(!candidates.length){myTurn=true;updateTurn();return}
+  const candidates=[];
+  for(let i=0;i<100;i++)if(!window.botShots.has(i))candidates.push(i);
+  if(!candidates.length)return;
+
   const id=candidates[Math.floor(Math.random()*candidates.length)];
   window.botShots.add(id);
   const hit=myShips[id]===1;
+
   if(hit){
-    myShips[id]=2;enemyHits++;window.botTargets.push(id);
-    toast("💥 Бот попал! Он продолжает атаку.");
+    myShips[id]=2;enemyHits++;
+    toast("💥 Бот попал!");
   }else{
-    toast("Бот промахнулся");
+    toast("🌊 Бот промахнулся");
   }
   render();
   if(checkVictory())return;
-  if(hit)setTimeout(botAttack,520);else{myTurn=true;updateTurn()}
+  if(hit)setTimeout(botAttack,550);
+  else{myTurn=true;updateTurn();}
 }
+
 function startBot(){
-  mode=0;qs("menu").classList.add("hidden");qs("game").classList.remove("hidden");
-  myShips=makeFleet();enemyView=Array(100).fill(0);window.bot=makeFleet();
-  window.botShots=new Set();window.botTargets=[];myHits=enemyHits=0;myTurn=true;
-  qs("gameTitle").textContent="1 × 1 • БОТ";render();updateTurn();
-  toast("⚓ Бой начался. Твой ход!");
+  mode=0;
+  qs("menu").classList.add("hidden");
+  qs("game").classList.remove("hidden");
+  myShips=makeFleet();
+  enemyView=Array(100).fill(0);
+  window.bot=makeFleet();
+  window.botShots=new Set();
+  myHits=enemyHits=0;
+  myTurn=true;
+  qs("gameTitle").textContent="1 × 1 • БОТ";
+  render();updateTurn();
+  toast("⚓ Бой начался");
 }
 
 function handleData(m){
-  if(m.t==="fleet"){window.enemyFleet=m.fleet;return}
+  if(m.t==="fleet")return;
+
   if(m.t==="shot"){
     const hit=myShips[m.id]===1;
     if(hit){myShips[m.id]=2;enemyHits++}
-    send({t:"result",id:m.id,hit});render();
+    send({t:"result",id:m.id,hit});
+    render();
     if(checkVictory())return;
     myTurn=true;updateTurn();
-    toast(hit?"💥 В тебя попали!":"Соперник промахнулся");
+    toast(hit?"💥 В тебя попали!":"🌊 Соперник промахнулся");
     return;
   }
+
   if(m.t==="result"){
-    enemyView[m.id]=m.hit?2:3;if(m.hit)myHits++;render();
+    enemyView[m.id]=m.hit?2:3;
+    if(m.hit)myHits++;
+    render();
     if(checkVictory())return;
     toast(m.hit?"🎯 ПОПАДАНИЕ!":"🌊 Промах");
-    myTurn=m.hit;updateTurn();
+    myTurn=m.hit;
+    updateTurn();
   }
 }
-function copyCode(){if(navigator.clipboard)navigator.clipboard.writeText(room);toast("Код скопирован")}
+
+function copyCode(){
+  if(navigator.clipboard)navigator.clipboard.writeText(room);
+  toast("Код скопирован");
+}
+
 function backMenu(){
+  clearTimeout(connectionTimer);
   if(conn)try{conn.close()}catch(e){}
   if(peer)try{peer.destroy()}catch(e){}
   conn=peer=null;
-  qs("game").classList.add("hidden");qs("lobby").classList.add("hidden");qs("menu").classList.remove("hidden");
+  qs("game").classList.add("hidden");
+  qs("lobby").classList.add("hidden");
+  qs("menu").classList.remove("hidden");
 }
 </script>
 </body>
