@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ABYSS — Морской Бой</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#ecfbff;background:#020914}
+body{overflow-x:hidden;background:
+radial-gradient(circle at 12% 8%,rgba(15,146,188,.30),transparent 27%),
+radial-gradient(circle at 92% 18%,rgba(46,72,183,.20),transparent 24%),
+linear-gradient(180deg,#041523 0%,#020914 70%)}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;background:
+linear-gradient(115deg,transparent 0 46%,rgba(56,222,255,.08) 47%,transparent 48%),
+linear-gradient(20deg,transparent 0 48%,rgba(56,222,255,.05) 49%,transparent 50%);background-size:180px 180px}
+.app{max-width:1080px;margin:auto;padding:18px 14px 40px}
+.top{text-align:center;padding:8px 0 20px}.eyebrow{font-size:10px;font-weight:900;letter-spacing:5px;color:#45e4ff}.logo{font-size:44px;font-weight:1000;letter-spacing:9px;margin:4px 0 2px;text-shadow:0 0 14px #0bc9ff,0 0 38px #0b75a6}.sub{color:#87aebe;font-size:13px}
+.card{background:linear-gradient(145deg,rgba(8,32,49,.94),rgba(3,17,29,.97));border:1px solid #15536b;border-radius:26px;box-shadow:0 18px 60px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.035);padding:22px;backdrop-filter:blur(15px)}
+h2{margin:0 0 17px;font-size:22px}.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.mode{position:relative;overflow:hidden;min-height:128px;padding:20px;border-radius:19px;background:linear-gradient(145deg,#09273a,#061724);border:1px solid #16566d;color:#fff;text-align:left;cursor:pointer;transition:.22s}.mode:after{content:"";position:absolute;right:-30px;bottom:-45px;width:120px;height:120px;border-radius:50%;background:#1ad8ff18}.mode:hover{transform:translateY(-4px);border-color:#39e1ff;box-shadow:0 12px 35px #00bce72b}.mode b{display:block;font-size:16px}.mode span{display:block;color:#86aebe;font-size:12px;line-height:1.5;margin-top:9px}.mode .icon{font-size:30px;margin-bottom:13px;display:block}
+.hidden{display:none!important}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.input{width:100%;padding:14px 15px;border-radius:14px;border:1px solid #195a73;background:#03131f;color:#fff;font-size:16px;outline:none}.input:focus{border-color:#35ddff;box-shadow:0 0 0 3px #22d8ff18}
+.btn{border:0;border-radius:13px;padding:12px 17px;background:linear-gradient(135deg,#2ee0ff,#13a8d1);color:#02111a;font-weight:900;cursor:pointer;box-shadow:0 8px 20px #00bde52a}.btn.secondary{background:#0a293b;color:#bdefff;border:1px solid #19566d;box-shadow:none}.btn.danger{background:#d95858;color:#fff}
+#lobby{max-width:700px;margin:auto}.code{font-size:30px;letter-spacing:7px;font-weight:1000;color:#43e3ff;text-align:center;padding:19px;background:linear-gradient(135deg,#03131f,#062336);border:1px solid #155a72;border-radius:17px;margin:15px 0;text-shadow:0 0 18px #0bd0ff}.status{padding:12px 14px;border-radius:13px;background:#071e2d;border:1px solid #123f53;color:#94c2d1;margin:12px 0}.online{color:#4dffb1}
+.boards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}.boardbox{background:linear-gradient(145deg,#061c2c,#04121e);border:1px solid #12475d;border-radius:21px;padding:13px;box-shadow:inset 0 1px rgba(255,255,255,.03)}.boardtitle{display:flex;justify-content:space-between;align-items:center;color:#8db8c9;font-size:11px;letter-spacing:1.5px;margin:2px 3px 11px}.boardtitle strong{color:#e9fbff;font-size:12px}.board{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}.cell{aspect-ratio:1;border-radius:5px;background:#072a3f;border:1px solid #0d4d65;display:flex;align-items:center;justify-content:center;font-weight:1000;font-size:12px;cursor:pointer;transition:.12s;user-select:none}.cell.ship{background:linear-gradient(145deg,#11617a,#0b4057);box-shadow:inset 0 0 0 1px #2ed8ef38}.cell.hit{background:radial-gradient(circle,#ff7567,#bd3f3a);color:white;border-color:#ff8a7f;box-shadow:0 0 13px #ff514766}.cell.miss{background:#1a3541;color:#79a6b5}.enemy .cell:not(.hit):not(.miss):hover{transform:scale(.92);background:#0f7895;border-color:#3ce2ff;box-shadow:0 0 14px #14d7ff55}.panel{display:flex;justify-content:space-between;gap:10px;align-items:center}.gamehead{display:flex;align-items:center;gap:12px}.radar{width:44px;height:44px;border-radius:50%;border:1px solid #2bdfff66;background:radial-gradient(circle,#1ce0ff1c 0 10%,transparent 11%),repeating-radial-gradient(circle,transparent 0 12px,#28d8ff17 13px 14px);position:relative}.radar:after{content:"";position:absolute;width:50%;height:1px;left:50%;top:50%;background:#39e1ff;transform-origin:left;animation:sweep 2.4s linear infinite}@keyframes sweep{to{transform:rotate(360deg)}}.pill{padding:8px 12px;border-radius:99px;background:#092b3d;border:1px solid #164d62;color:#a8d8e5;font-size:12px}.turn{margin-top:13px;padding:12px 14px;border-radius:13px;background:#061a28;border:1px solid #12475b;color:#8fb9c8}.turn.your{color:#5affb7;border-color:#1e8060;background:#06261f}.turn.enemy{color:#ffb28e;border-color:#75483c;background:#28160f}.stats{display:flex;gap:8px;margin-top:13px}.stat{flex:1;padding:10px;border-radius:12px;background:#061a27;border:1px solid #123f52;text-align:center}.stat small{display:block;color:#769bab;font-size:10px}.stat b{display:block;margin-top:3px;font-size:18px}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#061b2b;border:1px solid #1e647d;padding:12px 18px;border-radius:13px;box-shadow:0 10px 30px #0009;z-index:20;white-space:nowrap}
+@media(max-width:760px){.modes{grid-template-columns:1fr}.mode{min-height:92px}.mode .icon{display:inline;margin-right:8px;font-size:22px}.boards{grid-template-columns:1fr}.logo{font-size:34px;letter-spacing:7px}.app{padding:11px 9px 30px}.card{padding:14px;border-radius:20px}.boardbox{padding:10px}.boards{gap:12px}.cell{border-radius:4px}.panel{align-items:flex-start}.panel .btn{padding:10px 12px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top"><div class="eyebrow">TACTICAL NAVAL ARENA</div><div class="logo">ABYSS</div><div class="sub">Морской бой нового поколения</div></header>
+
+  <section id="menu" class="card">
+    <h2>Выбери режим</h2>
+    <div class="modes">
+      <button class="mode" onclick="startBot()"><span class="icon">🤖</span><b>1 × 1 • БОТ</b><span>Умный противник: ищет корабль после попадания.</span></button>
+      <button class="mode" onclick="openOnline(1)"><span class="icon">🌐</span><b>1 × 1 • ОНЛАЙН</b><span>Человек против человека по коду комнаты.</span></button>
+      <button class="mode" onclick="openOnline(2)"><span class="icon">⚓⚓</span><b>2 × 2 • ОНЛАЙН</b><span>Командная битва с друзьями.</span></button>
+    </div>
+  </section>
+
+  <section id="lobby" class="card hidden">
+    <h2>🌐 Онлайн-комната</h2>
+    <div id="modeText" class="sub"></div>
+    <div class="status" id="netStatus">Готовим соединение…</div>
+    <div id="roomJoin">
+      <input id="roomInput" class="input" placeholder="Код комнаты, например AB7K2">
+      <div class="row" style="margin-top:10px"><button class="btn" onclick="joinRoom()">Войти в комнату</button><button class="btn secondary" onclick="createRoom()">Создать комнату</button></div>
+    </div>
+    <div id="roomReady" class="hidden">
+      <div class="sub">Твой код комнаты:</div><div class="code" id="roomCode">-----</div>
+      <div class="sub">Отправь этот код другу. Второй игрок подключится автоматически.</div>
+      <div class="status" id="players">Ожидание игроков…</div>
+      <button class="btn secondary" onclick="copyCode()">Копировать код</button>
+    </div>
+    <div style="margin-top:14px"><button class="btn secondary" onclick="backMenu()">← Назад</button></div>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="card">
+      <div class="panel">
+        <div class="gamehead"><div class="radar"></div><div><b id="gameTitle">БИТВА</b><div class="sub">TACTICAL NAVAL ARENA</div></div></div>
+        <div class="row"><span class="pill" id="score">0 : 0</span><button class="btn secondary" onclick="backMenu()">Меню</button></div>
+      </div>
+      <div id="turnBox" class="turn"><span id="turnText">Подготовка…</span></div>
+      <div class="stats"><div class="stat"><small>ВАШИ ПОПАДАНИЯ</small><b id="myScore">0</b></div><div class="stat"><small>ПОПАДАНИЯ ВАС</small><b id="enemyScore">0</b></div><div class="stat"><small>РЕЖИМ</small><b id="modeStat">1×1</b></div></div>
+      <div class="boards">
+        <div class="boardbox"><div class="boardtitle">ТВОЙ ФЛОТ</div><div id="myBoard" class="board"></div></div>
+        <div class="boardbox"><div class="boardtitle">ПОЛЕ СОПЕРНИКА — СТРЕЛЯЙ</div><div id="enemyBoard" class="board enemy"></div></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/*
+  ONLINE MODE
+  WebSocket relay через твой Render-сервер.
+  Это специально сделано БЕЗ PeerJS/WebRTC:
+  мобильные операторы часто используют CGNAT, из-за чего
+  прямое WebRTC-соединение 4G↔4G может не установиться.
+*/
+const GAME_SERVER="wss://seabattle-k1q4.onrender.com/game";
+
+let mode=1, ws=null, host=false, room="";
+let myShips=[], enemyView=[], myHits=0, enemyHits=0, myTurn=false;
+
+function qs(id){return document.getElementById(id)}
+
+function toast(t){
+  const e=qs("toast"); if(!e)return;
+  e.textContent=t;
+  e.classList.remove("hidden");
+  clearTimeout(window.toastTimer);
+  window.toastTimer=setTimeout(()=>e.classList.add("hidden"),3000);
+}
+
+function setStatus(t){
+  if(qs("players")) qs("players").innerHTML=t;
+}
+
+function openOnline(m){
+  mode=m;
+  qs("menu").classList.add("hidden");
+  qs("lobby").classList.remove("hidden");
+
+  qs("modeText").textContent =
+    m===1 ? "1 × 1: два человека онлайн" :
+            "2 × 2: командная онлайн-комната";
+
+  qs("netStatus").innerHTML =
+    '<span class="online">● ONLINE</span> WebSocket Render';
+}
+
+function connectServer(onOpen){
+  if(ws && ws.readyState===WebSocket.OPEN){
+    onOpen();
+    return;
+  }
+
+  qs("netStatus").innerHTML =
+    '<span class="online">● ПОДКЛЮЧЕНИЕ</span> Render WebSocket…';
+
+  try{
+    ws=new WebSocket(GAME_SERVER);
+  }catch(e){
+    toast("Не удалось открыть WebSocket");
+    return;
+  }
+
+  const timer=setTimeout(()=>{
+    if(!ws || ws.readyState!==WebSocket.OPEN){
+      setStatus("Сервер не ответил. Render мог уснуть — подожди 10–30 секунд и попробуй ещё раз.");
+      toast("Render долго просыпается");
+    }
+  },15000);
+
+  ws.onopen=()=>{
+    clearTimeout(timer);
+    qs("netStatus").innerHTML =
+      '<span class="online">● ONLINE</span> Render WebSocket подключён';
+    onOpen();
+  };
+
+  ws.onmessage=e=>{
+    try{
+      const m=JSON.parse(e.data);
+      handleServerMessage(m);
+    }catch(err){
+      console.error(err);
+    }
+  };
+
+  ws.onerror=()=>{
+    clearTimeout(timer);
+    setStatus("Ошибка WebSocket. Проверь, что новый server.js уже задеплоен на Render.");
+    toast("Ошибка WebSocket");
+  };
+
+  ws.onclose=()=>{
+    clearTimeout(timer);
+    if(qs("game") && !qs("game").classList.contains("hidden")){
+      toast("Соединение с сервером закрыто");
+    }
+  };
+}
+
+function sendServer(data){
+  if(ws && ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify(data));
+  }else{
+    toast("Нет соединения с сервером");
+  }
+}
+
+function createRoom(){
+  room=Math.random().toString(36).slice(2,7).toUpperCase();
+  host=true;
+
+  qs("roomJoin").classList.add("hidden");
+  qs("roomReady").classList.remove("hidden");
+  qs("roomCode").textContent=room;
+  setStatus("Подключаемся к серверу…");
+
+  connectServer(()=>{
+    sendServer({t:"join",room,mode,host:true});
+  });
+}
+
+function joinRoom(){
+  const code=qs("roomInput").value.trim().toUpperCase();
+  if(!code)return toast("Введи код комнаты");
+
+  room=code;
+  host=false;
+
+  qs("roomJoin").classList.add("hidden");
+  qs("roomReady").classList.remove("hidden");
+  qs("roomCode").textContent=room;
+  setStatus("Подключаемся к комнате…");
+
+  connectServer(()=>{
+    sendServer({t:"join",room,mode,host:false});
+  });
+}
+
+function handleServerMessage(m){
+  if(m.t==="room"){
+    if(m.status==="waiting"){
+      setStatus('<span class="online">● СЕРВЕР ПОДКЛЮЧЁН</span><br>Ожидание игрока…');
+    }
+    else if(m.status==="full"){
+      setStatus("Комната заполнена");
+      toast("Комната уже заполнена");
+    }
+    return;
+  }
+
+  if(m.t==="start"){
+    host=!!m.host;
+    setStatus('<span class="online">● ИГРОК ПОДКЛЮЧЁН</span><br>Соединение через Render установлено!');
+    toast("⚓ Игрок подключён!");
+    initOnlineGame();
+    return;
+  }
+
+  if(m.t==="peer_left"){
+    toast("Соперник отключился");
+    setStatus("Соперник отключился");
+    return;
+  }
+
+  if(m.t==="game"){
+    handleData(m.data);
+  }
+}
+
+function makeFleet(){
+  const a=Array(100).fill(0);
+  const lens=[4,3,3,2,2,2,1,1,1,1];
+
+  for(const len of lens){
+    let placed=false;
+
+    while(!placed){
+      const horizontal=Math.random()<0.5;
+      const r=Math.floor(Math.random()*(horizontal?10:11-len));
+      const c=Math.floor(Math.random()*(horizontal?11-len:10));
+      const cells=[];
+      let ok=true;
+
+      for(let i=0;i<len;i++){
+        const rr=r+(horizontal?0:i);
+        const cc=c+(horizontal?i:0);
+        const id=rr*10+cc;
+
+        if(a[id]){
+          ok=false;
+          break;
+        }
+        cells.push(id);
+      }
+
+      if(ok){
+        cells.forEach(id=>a[id]=1);
+        placed=true;
+      }
+    }
+  }
+
+  return a;
+}
+
+function initOnlineGame(){
+  myShips=makeFleet();
+  enemyView=Array(100).fill(0);
+  myHits=0;
+  enemyHits=0;
+  myTurn=host;
+
+  showGame();
+
+  sendGame({t:"fleet",fleet:myShips});
+
+  if(host)toast("Твой ход — атакуй!");
+}
+
+function sendGame(data){
+  sendServer({t:"game",data});
+}
+
+function showGame(){
+  qs("lobby").classList.add("hidden");
+  qs("game").classList.remove("hidden");
+
+  qs("gameTitle").textContent =
+    mode===1 ? "ОНЛАЙН • 1 × 1" : "ОНЛАЙН • 2 × 2";
+
+  render();
+  updateTurn();
+}
+
+function render(){
+  const mb=qs("myBoard");
+  const eb=qs("enemyBoard");
+
+  mb.innerHTML="";
+  eb.innerHTML="";
+
+  for(let i=0;i<100;i++){
+    const a=document.createElement("div");
+    a.className="cell"+
+      (myShips[i]===1?" ship":"")+
+      (myShips[i]===2?" hit":"");
+
+    if(myShips[i]===2)a.textContent="×";
+    mb.appendChild(a);
+
+    const b=document.createElement("div");
+    b.className="cell"+
+      (enemyView[i]===2?" hit":"")+
+      (enemyView[i]===3?" miss":"");
+
+    if(enemyView[i]===2)b.textContent="×";
+    if(enemyView[i]===3)b.textContent="•";
+
+    b.onclick=()=>shoot(i);
+    eb.appendChild(b);
+  }
+
+  qs("score").textContent=`${myHits} : ${enemyHits}`;
+  qs("myScore").textContent=myHits;
+  qs("enemyScore").textContent=enemyHits;
+  qs("modeStat").textContent=mode===1?"1×1":"2×2";
+}
+
+function updateTurn(){
+  const box=qs("turnBox");
+  box.classList.toggle("your",!!myTurn);
+  box.classList.toggle("enemy",!myTurn);
+
+  qs("turnText").textContent =
+    myTurn ? "ТВОЙ ХОД — ВЫБЕРИ КЛЕТКУ" :
+             "ХОД СОПЕРНИКА — ВНИМАНИЕ";
+}
+
+function checkVictory(){
+  if(myHits>=20){
+    toast("🏆 ПОБЕДА! Флот противника уничтожен.");
+    myTurn=false;
+    sendGame({t:"victory"});
+    return true;
+  }
+
+  if(enemyHits>=20){
+    toast("💀 ПОРАЖЕНИЕ! Твой флот уничтожен.");
+    myTurn=false;
+    return true;
+  }
+
+  return false;
+}
+
+function shoot(i){
+  if(!myTurn)return toast("Сейчас ход соперника");
+  if(enemyView[i])return toast("Ты уже стрелял сюда");
+
+  sendGame({t:"shot",id:i});
+  myTurn=false;
+  updateTurn();
+}
+
+function handleData(m){
+  if(m.t==="fleet"){
+    return;
+  }
+
+  if(m.t==="shot"){
+    const hit=myShips[m.id]===1;
+
+    if(hit){
+      myShips[m.id]=2;
+      enemyHits++;
+    }
+
+    sendGame({t:"result",id:m.id,hit});
+    render();
+
+    if(checkVictory())return;
+
+    myTurn=true;
+    updateTurn();
+    toast(hit?"💥 В тебя попали!":"🌊 Соперник промахнулся");
+    return;
+  }
+
+  if(m.t==="result"){
+    enemyView[m.id]=m.hit?2:3;
+
+    if(m.hit)myHits++;
+
+    render();
+
+    if(checkVictory())return;
+
+    /* В классическом морском бое после попадания игрок стреляет снова. */
+    myTurn=!!m.hit;
+    updateTurn();
+
+    toast(m.hit?"🎯 ПОПАДАНИЕ! Стреляй ещё.":"🌊 Промах — ход соперника");
+    return;
+  }
+
+  if(m.t==="victory"){
+    myTurn=false;
+    toast("💀 ПОРАЖЕНИЕ — противник уничтожил флот");
+    updateTurn();
+  }
+}
+
+function startBot(){
+  mode=0;
+
+  qs("menu").classList.add("hidden");
+  qs("game").classList.remove("hidden");
+
+  myShips=makeFleet();
+  enemyView=Array(100).fill(0);
+  window.bot=makeFleet();
+  window.botShots=new Set();
+
+  myHits=0;
+  enemyHits=0;
+  myTurn=true;
+
+  qs("gameTitle").textContent="1 × 1 • БОТ";
+
+  render();
+  updateTurn();
+  toast("⚓ Бой начался");
+}
+
+function botAttack(){
+  if(mode!==0)return;
+
+  const possible=[];
+  for(let i=0;i<100;i++){
+    if(!window.botShots.has(i))possible.push(i);
+  }
+
+  if(!possible.length)return;
+
+  const id=possible[Math.floor(Math.random()*possible.length)];
+  window.botShots.add(id);
+
+  const hit=myShips[id]===1;
+
+  if(hit){
+    myShips[id]=2;
+    enemyHits++;
+    toast("💥 Бот попал!");
+  }else{
+    toast("🌊 Бот промахнулся");
+  }
+
+  render();
+
+  if(checkVictory())return;
+
+  if(hit)setTimeout(botAttack,550);
+  else{
+    myTurn=true;
+    updateTurn();
+  }
+}
+
+function copyCode(){
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(room);
+  }
+  toast("Код скопирован");
+}
+
+function backMenu(){
+  if(ws){
+    try{ws.close()}catch(e){}
+  }
+
+  ws=null;
+
+  qs("game").classList.add("hidden");
+  qs("lobby").classList.add("hidden");
+  qs("menu").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
