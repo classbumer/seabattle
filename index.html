@@ -168,9 +168,9 @@
 // === Устойчивая загрузка PeerJS с несколькими CDN (защита от блокировки/недоступности одного из них) ===
 (function(){
   var sources=[
-    "https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js",
-    "https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js"
+    "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js",
+    "https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"
   ];
   var i=0;
   function tryLoad(){
@@ -190,9 +190,8 @@
 })();
 </script>
 <script>
-// GitHub Pages + PeerJS Cloud. Do not hard-code host/key here:
-// PeerJS 1.5.5 automatically uses the official PeerJS Cloud server
-// (0.peerjs.com:443) when host/key are omitted.
+// Online server configuration. Replace host after deploying the included server.
+const ONLINE_SERVER = { host: "seabattle-k1q4.onrender.com", port: 443, path: "/peerjs", secure: true };
 const ONLINE_ICE = { iceServers: [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
@@ -207,9 +206,9 @@ const ONLINE_ICE = { iceServers: [
 ], sdpSemantics: "unified-plan", iceCandidatePoolSize: 10 };
 function makePeer(id){
   if(typeof Peer === 'undefined') throw new Error('PeerJS не загрузился');
-  // Important for GitHub Pages: use PeerJS Cloud defaults instead of
-  // manually forcing host/key. PeerJS 1.5.5 uses 0.peerjs.com:443.
-  return new Peer(id,{config:ONLINE_ICE,debug:2,pingInterval:5000});
+  const opts={host:ONLINE_SERVER.host,port:ONLINE_SERVER.port,path:ONLINE_SERVER.path,secure:ONLINE_SERVER.secure,key:ONLINE_SERVER.key,config:ONLINE_ICE,debug:2};
+  if(ONLINE_SERVER.host==='YOUR-SERVER-DOMAIN') throw new Error('Не настроен адрес сервера');
+  return new Peer(id,opts);
 }
 // Закрывает предыдущее соединение (если было) перед тем, как открыть новое.
 // Без этого повторный вход в комнату после уже сыгранной партии часто даёт ошибку "network",
@@ -407,27 +406,13 @@ function genRoomCode(){
   for(var i=0;i<6;i++) code+=alphabet[Math.floor(Math.random()*alphabet.length)];
   return code;
 }
-function createRoomImpl(){resetPeer();room=genRoomCode();host=true;myPeerId='sb-'+room.toLowerCase()+'-host';if(typeof Peer==='undefined'){setConn('PeerJS не загрузился. Нужен интернет.');return}peer=makePeer(myPeerId);peer.on('open',()=>{setConn('Онлайн ✓');myId='p1';players=[{id:'p1',name:(document.getElementById('name').value||'Игрок 1').trim(),team:0,peerId:myPeerId,fleet:null,connected:true,ready:false,isBot:false}];teamFleetForSetup=null;forcedTeammateFleet=null;openSetup((fleet)=>{localFleet=fleet;players[0].fleet=fleet;players[0].ready=true;showLobby();updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})});});peer.on('connection',c=>{connections[c.peer]=c;c.on('open',()=>{if(gameState?.started)return;if(players.some(p=>p.id==='p2'&&p.connected)){c.send({type:'full'});return}let p={id:'p2',name:'Игрок 2',team:0,peerId:c.peer,fleet:null,connected:true,ready:false,isBot:false};players.push(p);c.send({type:'welcome',player:{id:p.id,name:p.name,team:0,peerId:p.peerId},players:publicLobby(),mode,mapSize:N,teammateFleet:players.find(x=>x.id==='p1')?.fleet||null});updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})});c.on('data',msg=>handleHost(c,msg));c.on('close',()=>{let p=players.find(x=>x.peerId===c.peer);if(p){p.connected=false;p.ready=false;updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})}})});peer.on('error',e=>{
-  if(e.type==='network'||e.type==='server-error'||e.type==='socket-error'||e.type==='socket-closed'){
-    setConn('Сеть: не удалось подключиться к PeerJS. Проверьте интернет и попробуйте ещё раз.');
-  }else{
-    setConn('Ошибка: '+e.type);
-  }
-  if(e.type==='peer-unavailable'&&host){setConn('Комната ещё не найдена. Проверьте код комнаты.')}
-})}
+function createRoomImpl(){resetPeer();room=genRoomCode();host=true;myPeerId='sb-'+room.toLowerCase()+'-host';if(typeof Peer==='undefined'){setConn('PeerJS не загрузился. Нужен интернет.');return}peer=makePeer(myPeerId);peer.on('open',()=>{setConn('Онлайн ✓');myId='p1';players=[{id:'p1',name:(document.getElementById('name').value||'Игрок 1').trim(),team:0,peerId:myPeerId,fleet:null,connected:true,ready:false,isBot:false}];teamFleetForSetup=null;forcedTeammateFleet=null;openSetup((fleet)=>{localFleet=fleet;players[0].fleet=fleet;players[0].ready=true;showLobby();updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})});});peer.on('connection',c=>{connections[c.peer]=c;c.on('open',()=>{if(gameState?.started)return;if(players.some(p=>p.id==='p2'&&p.connected)){c.send({type:'full'});return}let p={id:'p2',name:'Игрок 2',team:0,peerId:c.peer,fleet:null,connected:true,ready:false,isBot:false};players.push(p);c.send({type:'welcome',player:{id:p.id,name:p.name,team:0,peerId:p.peerId},players:publicLobby(),mode,mapSize:N,teammateFleet:players.find(x=>x.id==='p1')?.fleet||null});updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})});c.on('data',msg=>handleHost(c,msg));c.on('close',()=>{let p=players.find(x=>x.peerId===c.peer);if(p){p.connected=false;p.ready=false;updateLobby();broadcast({type:'lobby',players:publicLobby(),mode,mapSize:N})}})});peer.on('error',e=>{setConn('Ошибка: '+e.type); if(e.type==='peer-unavailable'&&host){setConn('Сервер не видит подключение. Проверь адрес сервера.')}})}
 function joinRoom(){let name=(document.getElementById('joinName').value||'Игрок 2').trim(),code=document.getElementById('roomInput').value.trim().toUpperCase();if(code.length<4){joinMsg.textContent='Введите код комнаты';return}
   if(typeof Peer==='undefined' && !window.__peerLoadFailed){ joinMsg.textContent='Загрузка сетевого модуля… подождите и нажмите ещё раз'; whenPeerReady(function(){ joinMsg.textContent='Модуль загружен, нажмите ВОЙТИ В ИГРУ ещё раз'; }); return; }
   if(window.__peerLoadFailed){ joinMsg.textContent='Не удалось загрузить онлайн-модуль (PeerJS). Проверьте интернет.'; return; }
   joinRoomImpl(name, code);
 }
-function joinRoomImpl(name, code){resetPeer();room=code;host=false;myPeerId='sb-'+room.toLowerCase()+'-'+Math.random().toString(36).slice(2,7);peer=makePeer(myPeerId);peer.on('open',()=>{let c=peer.connect('sb-'+room.toLowerCase()+'-host',{reliable:true});connections.host=c;c.on('open',()=>c.send({type:'join',name}));c.on('data',msg=>handleClient(msg));c.on('close',()=>setConn('Соединение потеряно'))});peer.on('error',e=>{
-  if(e.type==='network'||e.type==='server-error'||e.type==='socket-error'||e.type==='socket-closed'){
-    joinMsg.textContent='Сеть: не удалось подключиться к PeerJS. Проверьте интернет и попробуйте ещё раз.';
-  }else{
-    joinMsg.textContent='Не удалось подключиться: '+e.type;
-  }
-  if(e.type==='peer-unavailable') setTimeout(()=>{try{if(peer&& !peer.destroyed){let c=peer.connect('sb-'+room.toLowerCase()+'-host',{reliable:true});connections.host=c;c.on('open',()=>c.send({type:'join',name}));c.on('data',msg=>handleClient(msg));}}catch(_){}} ,1200)
-})}
+function joinRoomImpl(name, code){resetPeer();room=code;host=false;myPeerId='sb-'+room.toLowerCase()+'-'+Math.random().toString(36).slice(2,7);peer=makePeer(myPeerId);peer.on('open',()=>{let c=peer.connect('sb-'+room.toLowerCase()+'-host',{reliable:true});connections.host=c;c.on('open',()=>c.send({type:'join',name}));c.on('data',msg=>handleClient(msg));c.on('close',()=>setConn('Соединение потеряно'))});peer.on('error',e=>{joinMsg.textContent='Не удалось подключиться: '+e.type; if(e.type==='peer-unavailable') setTimeout(()=>{try{if(peer&& !peer.destroyed){let c=peer.connect('sb-'+room.toLowerCase()+'-host',{reliable:true});connections.host=c;c.on('open',()=>c.send({type:'join',name}));c.on('data',msg=>handleClient(msg));}}catch(_){}} ,1200)})}
 function showLobby(){modal.classList.remove('hidden');homeCard.classList.add('hidden');joinCard.classList.add('hidden');lobbyCard.classList.remove('hidden');roomCode.textContent=room}
 function publicLobby(){return players.map(p=>({id:p.id,name:p.name,team:p.team,connected:p.connected,ready:!!p.ready,isBot:!!p.isBot}))}
 function updateLobby(){let humans=players.filter(p=>!p.isBot&&p.connected).length;playersList.innerHTML=players.map(p=>`<div>👤 ${p.name} — ${p.isBot?'🤖 БОТ':'👤 ИГРОК'} — ${p.connected?'🟢':'🔴'} ${p.ready?'✓':''}</div>`).join('')+'<div>🤖 Боты: 2 / 2 (добавятся автоматически)</div>';startBtn.classList.toggle('hidden',!(host&&humans===2&&players.filter(p=>!p.isBot&&p.connected).every(p=>p.ready)));lobbyMsg.textContent=`Игроков: ${humans} / 2. Ботов: 2. Карта: ${N}×${N}`}
